@@ -92,6 +92,10 @@ int main(int argc, char **argv) {
   logging::initOrDie(config.log());
   hf3fs::SysResource::increaseProcessFDLimit(524288);
 
+  // Declared before the clients so that it is destroyed after them: the transports owned by
+  // the clients must be able to close their RDMA sockets gracefully through IBManager.
+  SCOPE_EXIT { hf3fs::net::IBManager::stop(); };
+
   std::shared_ptr<net::Client> client;
   std::shared_ptr<kv::fdb::FDBContext> fdbContext;
   std::shared_ptr<kv::IKVEngine> kvEngine;
@@ -108,7 +112,6 @@ int main(int argc, char **argv) {
       return true;
     }();
   };
-  SCOPE_EXIT { hf3fs::net::IBManager::stop(); };
 
   auto monitorResult = hf3fs::monitor::Monitor::start(config.monitor());
   XLOGF_IF(CRITICAL, !monitorResult, "Start monitor failed: {}", monitorResult.error().describe());
